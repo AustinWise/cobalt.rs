@@ -2,7 +2,7 @@ use std::ffi;
 use std::path;
 
 #[cfg(feature = "sass")]
-use sass_rs;
+use grass;
 use serde::{Deserialize, Serialize};
 
 use super::files;
@@ -60,17 +60,28 @@ impl SassCompiler {
         file_path: &path::Path,
         minify: &Minify,
     ) -> Result<()> {
-        let sass_opts = sass_rs::Options {
-            include_paths: self.import_dir.iter().cloned().collect(),
-            output_style: match self.style {
-                SassOutputStyle::Nested => sass_rs::OutputStyle::Nested,
-                SassOutputStyle::Expanded => sass_rs::OutputStyle::Expanded,
-                SassOutputStyle::Compact => sass_rs::OutputStyle::Compact,
-                SassOutputStyle::Compressed => sass_rs::OutputStyle::Compressed,
-            },
-            ..Default::default()
+        let mut load_paths: Vec<&path::Path> = Vec::new();
+        let import_dir = self.import_dir.clone();
+        if let Some(p) = &import_dir {
+            load_paths.push(path::Path::new(p));
+        }
+        let sass_opts: grass::Options = grass::Options::default().load_paths(&load_paths).style(match self
+            .style
+        {
+            SassOutputStyle::Nested => grass::OutputStyle::Expanded,
+            SassOutputStyle::Expanded => grass::OutputStyle::Expanded,
+            SassOutputStyle::Compact => grass::OutputStyle::Compressed,
+            SassOutputStyle::Compressed => grass::OutputStyle::Compressed,
+        });
+        // grass::from_path(file_path, options)
+
+        // let content = sass_rs::compile_file(file_path, sass_opts).map_err(failure::err_msg)?;
+        let content = match grass::from_path(file_path.to_str().unwrap(), &sass_opts) {
+            Ok(content) => content,
+            Err(err) => {
+                failure::bail!("Sass error: {:?}", err);
+            }
         };
-        let content = sass_rs::compile_file(file_path, sass_opts).map_err(failure::err_msg)?;
 
         let rel_src = file_path
             .strip_prefix(source)
