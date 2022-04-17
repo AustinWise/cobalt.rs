@@ -2,7 +2,7 @@ use std::ffi;
 use std::path;
 
 #[cfg(feature = "sass")]
-use sass_rs;
+use rsass;
 use serde::{Deserialize, Serialize};
 
 use super::files;
@@ -60,17 +60,20 @@ impl SassCompiler {
         file_path: &path::Path,
         minify: &Minify,
     ) -> Result<()> {
-        let sass_opts = sass_rs::Options {
-            include_paths: self.import_dir.iter().cloned().collect(),
-            output_style: match self.style {
-                SassOutputStyle::Nested => sass_rs::OutputStyle::Nested,
-                SassOutputStyle::Expanded => sass_rs::OutputStyle::Expanded,
-                SassOutputStyle::Compact => sass_rs::OutputStyle::Compact,
-                SassOutputStyle::Compressed => sass_rs::OutputStyle::Compressed,
+        let sass_opts = rsass::output::Format {
+            // include_paths: self.import_dir.iter().cloned().collect(),
+            style: match self.style {
+                SassOutputStyle::Nested => rsass::output::Style::Expanded,
+                SassOutputStyle::Expanded => rsass::output::Style::Expanded,
+                SassOutputStyle::Compact => rsass::output::Style::Compressed,
+                SassOutputStyle::Compressed => rsass::output::Style::Compressed,
             },
             ..Default::default()
         };
-        let content = sass_rs::compile_file(file_path, sass_opts).map_err(failure::err_msg)?;
+
+        let compiled = rsass::compile_scss_path(file_path, sass_opts)?;
+
+        let content = std::string::String::from_utf8(compiled)?;
 
         let rel_src = file_path
             .strip_prefix(source)
